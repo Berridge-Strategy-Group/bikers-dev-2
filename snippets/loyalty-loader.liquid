@@ -1,0 +1,4 @@
+fetch('/apps/loyalty/customer', {
+  headers: { Accept: 'application/json', 'X-React-Router-Data': '1' },
+  credentials: 'same-origin'
+}).then(r => r.json()).then(console.log)
