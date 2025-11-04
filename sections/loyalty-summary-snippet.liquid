@@ -1,0 +1,28 @@
+<div id="loy-summary" style="display:none">Loading loyalty…</div>
+<script>
+(function(){
+  function render(data){
+    var el = document.getElementById('loy-summary');
+    if (!el) return;
+
+    if (data && data.customer) {
+      var pts = data.customer.pointBalance || 0;
+      var tier = data.customer.tierId ? (' • Tier: ' + data.customer.tierId) : '';
+      el.textContent = 'Points: ' + pts + tier;
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
+  function onReady(){
+    if (window.__LOYALTY__){
+      window.__LOYALTY__.subscribe(render);
+      window.__LOYALTY__.get(); // ensure first load
+    } else {
+      setTimeout(onReady, 200);
+    }
+  }
+  onReady();
+})();
+</script>

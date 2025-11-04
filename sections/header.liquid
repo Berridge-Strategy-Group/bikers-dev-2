@@ -880,6 +880,8 @@
   }
 </script>
 
+{% render 'loyalty-summary-snippet' %}
+
 {%- if request.page_type == 'index' -%}
   {% assign potential_action_target = request.origin | append: routes.search_url | append: "?q={search_term_string}" %}
   <script type="application/ld+json">
