@@ -1,33 +1,55 @@
 <script>
-(window.__LOYALTY__ = (function () {
-  const state = { data:null, loading:false, error:null, last:0 };
-  const subs = new Set();
+/* Global, ES5-safe loyalty loader */
+(function () {
+  var state = { data: null, loading: false, error: null, last: 0 };
+  var subs = [];
 
-  function notify(){ subs.forEach(fn => { try { fn(state.data, state); } catch(_){} }); }
-  function subscribe(fn){ subs.add(fn); if (state.data) fn(state.data, state); return () => subs.delete(fn); }
-
-  async function get({force=false} = {}) {
-    const now = Date.now();
-    if (!force && state.data && (now - state.last) < 30000) return state.data; 
-    state.loading = true; notify();
-    try {
-      const r = await fetch('/apps/loyalty/customer?ngrok-skip-browser-warning=1', {
-        headers: { 'Accept':'application/json', 'X-React-Router-Data':'1' },
-        credentials: 'same-origin'
-      });
-      const json = await r.json(); null, ... }
-      state.data = json; state.error = null; state.last = now;
-      notify();
-      return json;
-    } catch (e) {
-      state.error = e; notify(); throw e;
-    } finally { state.loading = false; }
+  function notify(){
+    for (var i = 0; i < subs.length; i++){
+      try { subs[i](state.data, state); } catch (e) {}
+    }
+  }
+  function subscribe(fn){
+    subs.push(fn);
+    if (state.data) { try { fn(state.data, state); } catch (e) {} }
+    return function(){ var i = subs.indexOf(fn); if (i > -1) subs.splice(i, 1); };
   }
 
-  get().catch(()=>{});
-  document.addEventListener('shopify:section:load', () => get({force:true}).catch(()=>{}));
-  document.addEventListener('shopify:section:reorder', () => get({force:true}).catch(()=>{}));
+  function get(opts){
+    opts = opts || {};
+    var force = !!opts.force;
+    var now = Date.now();
+    if (!force && state.data && (now - state.last) < 30000) {
+      return Promise.resolve(state.data);
+    }
 
-  return { get, subscribe, _state: state };
-})());
+    state.loading = true; notify();
+
+    var qs = new URLSearchParams(window.location.search);
+    var extra = qs.get('_test_cid') ? '&_test_cid=' + encodeURIComponent(qs.get('_test_cid')) : '';
+    var url = '/apps/loyalty/customer?ngrok-skip-browser-warning=1' + extra;
+
+    return fetch(url, {
+      headers: { 'Accept': 'application/json', 'X-React-Router-Data': '1' },
+      credentials: 'same-origin'
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      state.data = json; state.error = null; state.last = now; notify();
+      return json;
+    })
+    .catch(function(e){ state.error = e; notify(); throw e; })
+    .then(function(v){ state.loading = false; return v; }, function(e){ state.loading = false; throw e; });
+  }
+
+  // Kick off once
+  get();
+
+  // Refresh when a section is reloaded or reordered in the editor
+  document.addEventListener('shopify:section:load', function(){ get({ force:true }); });
+  document.addEventListener('shopify:section:reorder', function(){ get({ force:true }); });
+
+  // Expose globally
+  window.__LOYALTY__ = { get: get, subscribe: subscribe, _state: state };
+})();
 </script>
