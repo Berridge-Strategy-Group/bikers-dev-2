@@ -1,0 +1,10 @@
+{% schema %}
+{
+  "name": "Loyalty — PDP points",
+  "settings": [
+    { "type": "range", "id": "earn_rate", "label": "Points per NZD", "default": 1, "min": 0, "max": 10, "step": 0.1 }
+  ],
+  "enabled_on": { "templates": ["product"] },
+  "presets": [{ "name": "Loyalty — PDP points" }]
+}
+{% endschema %}

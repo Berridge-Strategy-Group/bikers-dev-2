@@ -1,4 +1,39 @@
-fetch('/apps/loyalty/customer', {
-  headers: { Accept: 'application/json', 'X-React-Router-Data': '1' },
-  credentials: 'same-origin'
-}).then(r => r.json()).then(console.log)
+<script>
+/**
+ * Tiny client – fetches signed JSON from /apps/loyalty/customer and caches it.
+ * Exposes window.__LOYALTY__ with {get(), subscribe()} so any section/snippet can use it.
+ */
+(window.__LOYALTY__ = (function () {
+  const state = { data:null, loading:false, error:null, last:0 };
+  const subs = new Set();
+
+  function notify(){ subs.forEach(fn => { try { fn(state.data, state); } catch(_){} }); }
+  function subscribe(fn){ subs.add(fn); if (state.data) fn(state.data, state); return () => subs.delete(fn); }
+
+  async function get({force=false} = {}) {
+    const now = Date.now();
+    if (!force && state.data && (now - state.last) < 30000) return state.data; // 30s cache
+    state.loading = true; notify();
+    try {
+      const r = await fetch('/apps/loyalty/customer?ngrok-skip-browser-warning=1', {
+        headers: { 'Accept':'application/json', 'X-React-Router-Data':'1' },
+        credentials: 'same-origin'
+      });
+      const json = await r.json(); // { customer:{ id, pointBalance, ... } | null, ... }
+      state.data = json; state.error = null; state.last = now;
+      notify();
+      return json;
+    } catch (e) {
+      state.error = e; notify(); throw e;
+    } finally { state.loading = false; }
+  }
+
+  // auto-run once
+  get().catch(()=>{});
+  // re-fetch when theme editor loads/changes sections
+  document.addEventListener('shopify:section:load', () => get({force:true}).catch(()=>{}));
+  document.addEventListener('shopify:section:reorder', () => get({force:true}).catch(()=>{}));
+
+  return { get, subscribe, _state: state };
+})());
+</script>
